@@ -115,23 +115,20 @@ timetable=""
 while getopts "atdD:c:hv" o; do
     case "${o}" in
         a)
-            echo "Show all events"
             MODE=$ALL_EVENTS
             ;;
         t)
-            echo "Show tomorrow events"
             MODE=$TOMORROW_EVENTS
             ;;
         d)
             MODE=$DAILY_EVENTS
             ;;
         D)
-            [[ -v $OPTARG ]] && day=${OPTARG:0:3}
+            day=${OPTARG:0:3}
             MODE=$DAILY_EVENTS
             ;;
         c)
             calendar=${OPTARG}
-            echo "Show events of ${calendar}"
             timetable=$(read_timetable "${calendar}")
             ;;
         v)
