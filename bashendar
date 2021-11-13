@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
+
+################
+### ZappaBoy ###
+################
+
 set -euo pipefail
 
+SCRIPT_PATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 VERSION='1.0.0'
 HOURS=1
 ALL_EVENTS="ALL_EVENTS"
 TOMORROW_EVENTS="TOMORROW_EVENTS"
 DAILY_EVENTS="DAILY_EVENTS"
+CALENDARS_DIR="${SCRIPT_PATH}/calendars"
 
 usage() { cat << _EOF_
 Usage: events [OPTION]
@@ -46,6 +53,12 @@ show_daily_events(){
         Fri)
             day=5
             ;;
+        Sat)
+            day=6
+            ;;
+        Sun)
+            day=7
+            ;;
         *)
             echo "Wrong specified day"
             exit 1
@@ -53,8 +66,8 @@ show_daily_events(){
     esac
 
     day=$((day + 1))
-    DAILY_EVENTS=$(echo "${TIMETABLE}" | awk  -F '|' "{print \$${HOURS} \"\t\" \$${day}}")
-    echo "${DAILY_EVENTS}"
+    daily_events=$(echo "${timetable}" | awk  -F '|' "{print \$${HOURS} \"\t\" \$${day}}")
+    echo "${daily_events}"
 }
 
 show-tomorrow-events(){
@@ -62,14 +75,44 @@ show-tomorrow-events(){
 }
 
 show_all_events(){
-    ALL_EVENTS=$(echo "${TIMETABLE}" | column -s "|" -L -t)
-    echo "${ALL_EVENTS}"
+    all_events=$(echo "${timetable}" | column -s "|" -L -t)
+    echo "${all_events}"
 }
+
+read_timetable(){
+    local timetable
+    local calendar=$1
+    local timetable_path="${CALENDARS_DIR}/$calendar.sh"
+    [ ! -f "$timetable_path" ] && echo "Calendar not found." && exit 1
+    timetable=$(bash "$timetable_path")
+    echo "$timetable"
+}
+
+read_all_timetables(){
+    local timetable
+    local calendar
+    local timetable_path
+    local formatted_timetables=""
+
+    for FILE in "${CALENDARS_DIR}"/* ; do
+        timetable_path="$FILE"
+        timetable=$(bash "$timetable_path")
+        timetable_name=$(basename "$timetable_path")
+        timetable_name="${timetable_name%%.*}"
+        timetable_name="${timetable_name^}"
+        formatted_timetables=$(echo -e "${formatted_timetables}""\n\n$timetable_name\n\n")
+        formatted_timetables="${formatted_timetables}""${timetable}"
+    done
+
+    echo "$formatted_timetables"
+}
+
 
 MODE="NO_MODE"
 day=""
+timetable=""
 
-while getopts "atd:c:hv" o; do
+while getopts "atdD:c:hv" o; do
     case "${o}" in
         a)
             echo "Show all events"
@@ -77,15 +120,19 @@ while getopts "atd:c:hv" o; do
             ;;
         t)
             echo "Show tomorrow events"
-            MODE=$TOMORROW_EVENTS #tomorrow_events="true"
+            MODE=$TOMORROW_EVENTS
             ;;
         d)
+            MODE=$DAILY_EVENTS
+            ;;
+        D)
             [[ -v $OPTARG ]] && day=${OPTARG:0:3}
-            MODE=$DAILY_EVENTS #daily_events="true"
+            MODE=$DAILY_EVENTS
             ;;
         c)
-            CALENDAR=${OPTARG}
-            echo "Show events of ${CALENDAR}"
+            calendar=${OPTARG}
+            echo "Show events of ${calendar}"
+            timetable=$(read_timetable "${calendar}")
             ;;
         v)
             echo "Version: ${VERSION}"
@@ -101,15 +148,19 @@ if [[ $day == "" ]]; then
     day="$(date +%a)"
 fi
 
+if [[ $timetable == "" ]]; then
+    timetable=$(read_all_timetables)
+fi
+
  case "${MODE}" in
         "$ALL_EVENTS")
-            echo "Show all events"
+            show_all_events
             ;;
         "$TOMORROW_EVENTS")
-            echo "Show tomorrow events"
+            show-tomorrow-events
             ;;
         "$DAILY_EVENTS")
-            echo "Show events of day"
+            show_daily_events "$day"
             ;;
         *)
             usage
